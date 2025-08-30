@@ -1,4 +1,4 @@
-# Steam_ext4symliker
+# Steam_exFATsymliker
 A tool that lets you run Steam games stored on filesystems that don’t support symlinks.
 
 Instead of moving the entire Steam folder, this tool creates **symlinks for individual games and `.acf` (appmanifest) files**, so Steam sees them inside the default library (`~/.local/share/Steam`), while the actual data resides elsewhere.
@@ -10,7 +10,7 @@ Instead of moving the entire Steam folder, this tool creates **symlinks for indi
 
 ### Cross-platform benefit
 By symlinking appmanifests and game folders, you can share **a single installation** of your Steam games between Linux and Windows.  
-This works best if the shared library is stored on a filesystem accessible from both OS (e.g. NTFS for Windows/Linux, or ext4 with proper drivers on Windows).
+This works best if the shared library is stored on a filesystem accessible from both OS (MAYBE works NTFS for Windows/Linux, or ext4 with proper drivers on Windows needs proper testing).
 
 ## How it works
 The script:
