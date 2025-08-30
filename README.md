@@ -1,12 +1,12 @@
 # Steam_exFATsymliker
-A tool that lets you run Steam games stored on filesystems that don’t support symlinks.
+A Python tool that symlinks Steam games and manifests from external drives (e.g. exFAT), so Steam can run them without duplication.
 
 Instead of moving the entire Steam folder, this tool creates **symlinks for individual games and `.acf` (appmanifest) files**, so Steam sees them inside the default library (`~/.local/share/Steam`), while the actual data resides elsewhere.
 
 ## Why use it
 - Avoid duplicating hundreds of GB of games.  
 - Keep your main Steam folder clean without messy path changes.  
-- Works with exFAT filesystems
+- Especially useful with exFAT drives (common for external disks), which lack native symlink support on Windows but can be managed through this method.
 
 ### Cross-platform benefit
 By symlinking appmanifests and game folders, you can share **a single installation** of your Steam games between Linux and Windows.  
@@ -81,7 +81,7 @@ Instead, they are symlinked to the external drive.
 **External drive (Apex Legends real files, ~82 GB)**  
 ![Dolphin – external folder](assets/dolphin_exFATfolder.png)
 
-Here’s a Konsole output comparing the symlink and real folder size for Apex Legends.
+Konsole output: symlink vs real folder size (Apex Legends)
 ![Konosole](assets/konsole.png)
 
 
@@ -111,7 +111,13 @@ mkdir -p ~/.steam/runtime/SteamLinuxRuntime_sniper \
 - The external Steam library must be added inside Steam settings → Storage. Otherwise Steam won’t know about it and the symlinks won’t be valid.
 - On a dual-boot setup, disable automatic updates of the shared games on the secondary OS.
 - Steam on Windows won’t see the updated .acf files from Linux for obvious reasons.
-- To avoid conflicts, set on your secondary system to “Only update games on launch”. in my case, Windows use is only for linux broken games, such as Apex Legends, Rainbow Six or Battlefield 6. 
+- To avoid conflicts, set on your secondary system to “Only update games on launch”. in my case, Windows use is only for linux broken games, such as Apex Legends, Rainbow Six or Battlefield 6.
+
+### ⚠️ About the `--force` option  
+The `--force` flag will copy `.acf` manifests directly from the external filesystem (e.g. exFAT).  
+This may cause Steam to trigger new downloads even if data is present.  
+Safer approach: align manifests from Windows, which handles exFAT libraries more reliably.  
+
 
 ## Usage
 ```bash
