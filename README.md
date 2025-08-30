@@ -10,7 +10,7 @@ Instead of moving the entire Steam folder, this tool creates **symlinks for indi
 
 ### Cross-platform benefit
 By symlinking appmanifests and game folders, you can share **a single installation** of your Steam games between Linux and Windows.  
-This works best if the shared library is stored on a filesystem accessible from both OS (MAYBE works NTFS for Windows/Linux, or ext4 with proper drivers on Windows needs proper testing).
+This works best if the shared library is stored on a filesystem accessible from both OS. 
 
 ## How it works
 The script:
