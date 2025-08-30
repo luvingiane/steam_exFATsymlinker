@@ -32,7 +32,7 @@ The recommended way is to add it to `/etc/fstab`
 
 Below is an example from my setup:
 
-LABEL=Games /run/media/matt/Games auto rw,nofail,x-systemd.automount,nosuid,nodev,relatime,uid=1000,gid=1000,fmask=0022,dmask=0022,umask=000,iocharset=utf8,errors=remount-ro,x-gvfs-show,exec 0 0
+`LABEL=Games /run/media/matt/Games auto rw,nofail,x-systemd.automount,nosuid,nodev,relatime,uid=1000,gid=1000,fmask=0022,dmask=0022,umask=000,iocharset=utf8,errors=remount-ro,x-gvfs-show,exec 0 0`
 
 
 ### Explanation
