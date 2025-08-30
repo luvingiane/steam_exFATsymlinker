@@ -8,6 +8,11 @@ Instead of moving the entire Steam folder, this tool creates **symlinks for indi
 - Keep your main Steam folder clean without messy path changes.  
 - Especially useful with exFAT drives (common for external disks), which lack native symlink support on Windows but can be managed through this method.
 
+## Usage
+```bash
+python3 steam_symlinker.py
+```
+
 ### Cross-platform benefit
 By symlinking appmanifests and game folders, you can share **a single installation** of your Steam games between Linux and Windows.  
 This works best if the shared library is stored on a filesystem accessible from both OS. 
@@ -89,7 +94,27 @@ Steam shows the games as installed, even though they physically reside on the ex
 
 
 ### Windows
-On Windows, the same external library is detected, and games can be launched without reinstallation.  
+On Windows, the same external library is detected, and games can be launched without reinstallation. However, some additional settings are required to ensure proper synchronization between Linux and Windows.
+
+**Steam library on Windows (showing Apex Legends as installed)**  
+![Windows – Steam](assets/windows_steampendinnupdate.png)  
+*In Windows, if games are updated on Linux, they may appear as pending updates in Steam on Windows because the `.acf` files are stored in the local Steam folder.*
+
+**Local Steam folder on Windows**  
+![Windows – local folder](assets/windows_cfolder.png)  
+*Windows local folder, as you can see is empty.*
+
+**External Steam library on Windows (real Apex Legends folder)**  
+![Windows – external folder](assets/windows_dfolder.png)  
+*The actual game files reside in the external library on the drive.*
+
+### Download Settings (Windows/Secondary OS)
+To prevent Steam from downloading games again after moving or symlinking, make sure to configure your settings correctly on the secondary OS (Windows in this case).
+
+**Setting up Steam for downloads on Windows**  
+![Windows – download settings](assets/windows_downloadsettings.png)  
+*Ensure that Steam on the secondary OS is set to "Only update games on launch" to avoid unnecessary downloads.*
+
 
 ## Special case: SteamLinuxRuntime_sniper
 
@@ -118,13 +143,10 @@ The `--force` flag will copy `.acf` manifests directly from the external filesys
 This may cause Steam to trigger new downloads even if data is present.  
 Safer approach: align manifests from Windows, which handles exFAT libraries more reliably.  
 
-
-## Usage
-```bash
-python3 steam_symlinker.py --source /PATH/TO/DRIVE --target ~/.local/share/Steam/steamapps 
-```
 ## Acknowledgments
-Made with a lot of trial, error, symlinks… and the help of an AI assistant (OpenAI’s ChatGPT).  
+Made with a lot of trial, error, symlinks… and the help of an AI assistant (ChatGPT, sorry guys.).  
+If the interface looks a bit different, it's because I've installed [Millennium](https://github.com/SteamClientHomebrew/Millennium) and used the [Adwaita for Steam](https://github.com/tkashkin/Adwaita-for-Steam).  
+These themes give a different look to the Steam client and the overall environment.
 
 ## Licence
 MIT License – free to use, modify, and redistribute.
