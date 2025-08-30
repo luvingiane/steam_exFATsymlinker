@@ -37,7 +37,7 @@ If everything is set up correctly, Steam will show the games as installed in the
 **External Steam library view**  
 ![External Steam folder](assets/gamesfolder.png)
 
-## What you see in Dolphin
+## What you see in your file manager
 
 Even though Steam shows the game inside its local library, the actual files are not there.  
 Instead, they are symlinked to the external drive.
