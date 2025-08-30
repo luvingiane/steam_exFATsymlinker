@@ -25,6 +25,39 @@ Example: ~/.local/share/Steam/steamapps/ -> /run/media/matt/Games/SteamLibrary/s
 - Python3
 - Basic familiarity with file paths
 
+## Mounting the external drive
+
+For symlinks to remain valid, the external drive must always be mounted at the same path.  
+The recommended way is to add it to `/etc/fstab`
+
+Below is an example from my setup:
+
+LABEL=Games /run/media/matt/Games auto rw,nofail,x-systemd.automount,nosuid,nodev,relatime,uid=1000,gid=1000,fmask=0022,dmask=0022,umask=000,iocharset=utf8,errors=remount-ro,x-gvfs-show,exec 0 0
+
+
+### Explanation
+- **LABEL=Games** → identifies the drive by its filesystem label (“Games”). You can also use `UUID=` for extra reliability.  
+- **/run/media/matt/Games** → the fixed mount point where the drive will appear. This must match the path used by the symlinks.  
+- **auto** → filesystem type is detected automatically.  
+- **rw** → mount with read/write permissions.  
+- **nofail** → boot won’t fail if the drive is missing or unplugged.  
+- **x-systemd.automount** → systemd will mount the drive automatically when accessed, no need to mount it manually.  
+- **nosuid,nodev** → security flags: don’t allow setuid binaries or device files from this drive.  
+- **relatime** → optimized timestamp updates (less writes than `atime`).  
+- **uid=1000,gid=1000** → set ownership to user `1000` (your main account).  
+- **fmask=0022,dmask=0022,umask=000** → control file and directory permissions so Steam can read/write.  
+- **iocharset=utf8** → ensures proper filename encoding.  
+- **errors=remount-ro** → if errors occur, remount read-only to prevent corruption.  
+- **x-gvfs-show** → makes the drive visible in file managers like GNOME Files or Dolphin.  
+- **exec** → allow executing binaries (needed for some games).  
+- **0 0** → skip dump and fsck at boot for this drive.  
+
+This configuration ensures:
+- The drive always mounts under the same path.  
+- The user has proper ownership/permissions to let Steam create symlinks.  
+- The system won’t hang if the drive is not connected at boot.  
+
+
 ## Expected behavior
 
 If everything is set up correctly, Steam will show the games as installed in the **local library** (`~/.local/share/Steam`) even though they physically reside on the external drive (`/run/media/.../Games/SteamLibrary`).
@@ -84,6 +117,8 @@ mkdir -p ~/.steam/runtime/SteamLinuxRuntime_sniper \
 ```bash
 python3 steam_symlinker.py --source /PATH/TO/DRIVE --target ~/.local/share/Steam/steamapps 
 ```
+## Acknowledgments
+Made with a lot of trial, error, symlinks… and the help of an AI assistant (OpenAI’s ChatGPT).  
 
 ## Licence
 MIT License – free to use, modify, and redistribute.
