@@ -62,6 +62,11 @@ This configuration ensures:
 - The user has proper ownership/permissions to let Steam create symlinks.  
 - The system won’t hang if the drive is not connected at boot.  
 
+### ⚠️ About the `--force` option  
+The `--force` flag will copy `.acf` manifests directly from the external filesystem (e.g. exFAT).  
+This may cause Steam to trigger new downloads even if data is present.  
+Safer approach: align manifests from Windows, which handles exFAT libraries more reliably.  
+
 
 ## Expected behavior
 
@@ -98,11 +103,11 @@ On Windows, the same external library is detected, and games can be launched wit
 
 **Steam library on Windows (showing Apex Legends as installed)**  
 ![Windows – Steam](assets/windows_steampendinnupdate.png)  
-*In Windows, if games are updated on Linux, they may appear as pending updates in Steam on Windows because the `.acf` files are stored in the local Steam folder.*
+*In Windows, if games are updated on Linux, they may appear as pending updates in Steam on Windows because the `.acf` files are stored inside Linux local Steam folder.*
 
 **Local Steam folder on Windows**  
 ![Windows – local folder](assets/windows_cfolder.png)  
-*Windows local folder, as you can see is empty.*
+*Windows local folder, as you can see it's empty.*
 
 **External Steam library on Windows (real Apex Legends folder)**  
 ![Windows – external folder](assets/windows_dfolder.png)  
@@ -129,7 +134,7 @@ mkdir -p ~/.steam/runtime/SteamLinuxRuntime_sniper \
 && ln -sfn ~/.steam/runtime/SteamLinuxRuntime_sniper ~/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper
 ```
 
-## Important notes
+## TL;DR
 - It does not symlink the entire Steam folder, only games and manifest files.
 - If you move or rename game directories on the external drive, links will break and need to be recreated.
 - Steam sometimes rewrites .acf files; this script helps restore them properly when that happens.
@@ -137,11 +142,6 @@ mkdir -p ~/.steam/runtime/SteamLinuxRuntime_sniper \
 - On a dual-boot setup, disable automatic updates of the shared games on the secondary OS.
 - Steam on Windows won’t see the updated .acf files from Linux for obvious reasons.
 - To avoid conflicts, set on your secondary system to “Only update games on launch”. in my case, Windows use is only for linux broken games, such as Apex Legends, Rainbow Six or Battlefield 6.
-
-### ⚠️ About the `--force` option  
-The `--force` flag will copy `.acf` manifests directly from the external filesystem (e.g. exFAT).  
-This may cause Steam to trigger new downloads even if data is present.  
-Safer approach: align manifests from Windows, which handles exFAT libraries more reliably.  
 
 ## Acknowledgments
 Made with a lot of trial, error, symlinks… and the help of an AI assistant (ChatGPT, sorry guys.).  
