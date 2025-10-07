@@ -5,11 +5,12 @@ from __future__ import annotations
 
 import argparse
 import locale
+import os
 import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 
 LOGO = r"""
@@ -35,7 +36,23 @@ def detect_language(explicit: Optional[str] = None) -> str:
     if explicit in {"it", "en"}:
         return explicit
 
-    lang, _ = locale.getdefaultlocale() or ("", None)
+    env_lang = ""
+    for var in ("LC_ALL", "LC_MESSAGES", "LANG"):
+        value = os.environ.get(var)
+        if value:
+            env_lang = value
+            break
+
+    if env_lang:
+        lang = env_lang
+    else:
+        try:
+            locale.setlocale(locale.LC_ALL, "")
+        except locale.Error:
+            pass
+        lang, _ = locale.getlocale()
+        lang = lang or ""
+
     if isinstance(lang, str) and lang.lower().startswith("it"):
         return "it"
     return "en"
@@ -58,6 +75,7 @@ TEXT: Dict[str, Dict[str, str]] = {
             "2) Force ACF symlinks (dangerous)\n"
             "3) Fix SteamLinuxRuntime_sniper\n"
             "4) Export updated ACFs back to the exFAT drive\n"
+            "5) Append an /etc/fstab entry for this drive (requires root)\n"
             "Q) Quit\n"
         ),
         "prompt_choice": "Choose an option: ",
@@ -80,6 +98,14 @@ TEXT: Dict[str, Dict[str, str]] = {
         "status_skip": "⛔ Existing object skipped (use forced option to overwrite): {path}",
         "status_linked": "🔗 Linked {name} → {src}",
         "missing_source": "❓ Missing source, skipping: {name}",
+        "fstab_needs_root": "❌ This option requires root privileges (run with sudo).",
+        "fstab_mount_unknown": "❌ Could not determine the mount point for {path}.",
+        "fstab_uuid_failed": "❌ Unable to detect the UUID for {device}.",
+        "fstab_entry_preview": "\n📄 Proposed /etc/fstab entry:\n{entry}\n",
+        "fstab_confirm": "Append this line to /etc/fstab? [y/N]: ",
+        "fstab_written": "✅ Entry appended to /etc/fstab.",
+        "fstab_already_present": "ℹ️ An entry for this mount already exists in /etc/fstab.",
+        "fstab_unwritable": "❌ Could not write to /etc/fstab: {error}",
     },
     "it": {
         "welcome": "🚀 Steam exFAT Symlinker",
@@ -97,6 +123,7 @@ TEXT: Dict[str, Dict[str, str]] = {
             "2) Forza i symlink degli ACF (operazione rischiosa)\n"
             "3) Sistema SteamLinuxRuntime_sniper\n"
             "4) Esporta gli ACF aggiornati sul disco exFAT\n"
+            "5) Aggiungi una voce /etc/fstab per questo disco (richiede root)\n"
             "Q) Esci\n"
         ),
         "prompt_choice": "Scegli un'opzione: ",
@@ -119,6 +146,14 @@ TEXT: Dict[str, Dict[str, str]] = {
         "status_skip": "⛔ Oggetto esistente ignorato (usa l'opzione forzata per sovrascrivere): {path}",
         "status_linked": "🔗 Collegato {name} → {src}",
         "missing_source": "❓ Sorgente mancante, salto: {name}",
+        "fstab_needs_root": "❌ Questa opzione richiede i privilegi di root (esegui con sudo).",
+        "fstab_mount_unknown": "❌ Impossibile determinare il punto di mount per {path}.",
+        "fstab_uuid_failed": "❌ Impossibile rilevare l'UUID di {device}.",
+        "fstab_entry_preview": "\n📄 Voce /etc/fstab proposta:\n{entry}\n",
+        "fstab_confirm": "Aggiungere questa riga a /etc/fstab? [s/N]: ",
+        "fstab_written": "✅ Voce aggiunta a /etc/fstab.",
+        "fstab_already_present": "ℹ️ Esiste già una voce per questo mount in /etc/fstab.",
+        "fstab_unwritable": "❌ Impossibile scrivere su /etc/fstab: {error}",
     },
 }
 
@@ -134,7 +169,7 @@ def detect_exfat_mounts() -> List[Path]:
                 parts = line.split()
                 if len(parts) < 3:
                     continue
-                mount_point = Path(parts[1])
+                mount_point = Path(parts[1].replace("\\040", " "))
                 fs_type = parts[2].lower()
                 if fs_type in exfat_names and mount_point.exists():
                     mounts.append(mount_point)
@@ -185,6 +220,125 @@ def discover_steamapps_paths(mounts: Iterable[Path]) -> List[Path]:
             continue
 
     return candidates
+
+
+def _path_is_relative_to(path: Path, base: Path) -> bool:
+    try:
+        path.relative_to(base)
+        return True
+    except ValueError:
+        return False
+
+
+def find_mount_info(path: Path) -> Optional[Tuple[str, Path, str]]:
+    """Return (device, mount_point, fs_type) for the filesystem containing path."""
+
+    resolved = path.resolve()
+    best_match: Optional[Tuple[str, Path, str]] = None
+    best_length = -1
+
+    try:
+        with open("/proc/mounts", "r", encoding="utf-8") as mounts_file:
+            for line in mounts_file:
+                parts = line.split()
+                if len(parts) < 3:
+                    continue
+                device, mount_raw, fs_type = parts[:3]
+                mount_str = mount_raw.replace("\\040", " ")
+                mount_point = Path(mount_str)
+                try:
+                    candidate = mount_point.resolve()
+                except FileNotFoundError:
+                    candidate = mount_point
+                if resolved == candidate or _path_is_relative_to(resolved, candidate):
+                    candidate_length = len(candidate.as_posix())
+                    if candidate_length > best_length:
+                        best_match = (device, candidate, fs_type)
+                        best_length = candidate_length
+    except OSError:
+        return None
+
+    return best_match
+
+
+def append_fstab_entry(steamapps_ext: Path, language: str) -> None:
+    text = TEXT[language]
+
+    geteuid = getattr(os, "geteuid", None)
+    if callable(geteuid) and geteuid() != 0:
+        print(text["fstab_needs_root"])
+        return
+
+    mount_info = find_mount_info(steamapps_ext)
+    if not mount_info:
+        print(text["fstab_mount_unknown"].format(path=steamapps_ext))
+        return
+
+    device, mount_point, fs_type = mount_info
+    uuid = ""
+    if device.startswith("UUID="):
+        uuid = device.split("=", 1)[1]
+    else:
+        try:
+            result = subprocess.run(
+                ["blkid", "-s", "UUID", "-o", "value", device],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError:
+            result = None
+        else:
+            uuid = result.stdout.strip()
+        if result is None or not uuid:
+            print(text["fstab_uuid_failed"].format(device=device))
+            return
+
+    mount_for_fstab = mount_point.as_posix().replace(" ", "\\040")
+    fs_type = fs_type if fs_type != "auto" else "auto"
+
+    getuid = getattr(os, "getuid", None)
+    getgid = getattr(os, "getgid", None)
+    uid = int(os.environ.get("SUDO_UID", getuid() if callable(getuid) else 0))
+    gid = int(os.environ.get("SUDO_GID", getgid() if callable(getgid) else 0))
+
+    options = (
+        "rw,nofail,x-systemd.automount,nosuid,nodev,relatime,"
+        f"uid={uid},gid={gid},fmask=0022,dmask=0022,umask=000,"
+        "iocharset=utf8,errors=remount-ro,x-gvfs-show,exec"
+    )
+    entry = f"UUID={uuid} {mount_for_fstab} {fs_type} {options} 0 0"
+
+    fstab_path = Path("/etc/fstab")
+    try:
+        existing_content = fstab_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        existing_content = ""
+    except OSError as exc:
+        print(text["fstab_unwritable"].format(error=exc))
+        return
+
+    if f"UUID={uuid}" in existing_content or mount_for_fstab in existing_content:
+        print(text["fstab_already_present"])
+        return
+
+    print(text["fstab_entry_preview"].format(entry=entry))
+    response = input(text["fstab_confirm"]).strip().lower()
+    valid_yes = {"y", "yes"} if language == "en" else {"s", "si", "sì", "y", "yes"}
+    if response not in valid_yes:
+        print(text["cancelled"])
+        return
+
+    try:
+        with fstab_path.open("a", encoding="utf-8") as fstab_file:
+            if existing_content and not existing_content.endswith("\n"):
+                fstab_file.write("\n")
+            fstab_file.write(entry + "\n")
+    except OSError as exc:
+        print(text["fstab_unwritable"].format(error=exc))
+        return
+
+    print(text["fstab_written"])
 
 
 def choose_external_path(language: str) -> Optional[Path]:
@@ -435,6 +589,8 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
             ensure_runtime(steamapps_ext, language)
         elif choice == "4":
             export_acf_to_external(steamapps_ext, steamapps_local, language)
+        elif choice == "5":
+            append_fstab_entry(steamapps_ext, language)
         elif choice in {"q", "quit", "exit"}:
             print(text["bye"])
             break

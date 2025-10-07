@@ -22,8 +22,9 @@ The tool launches an interactive (Italian/English) menu that automatically detec
 
 1. **Update ACF symlinks** – refreshes manifests and game folders without touching existing files. At the end you see how many symlinks were created or refreshed.
 2. **Force the ACF symlinks** – same as above, but it removes any conflicting files/directories first. Use this only when you know what you are doing.
-3. **Fix `SteamLinuxRuntime_sniper`** – copies the runtime locally and recreates the expected symlink so Proton can find it.
+3. **Fix `SteamLinuxRuntime_sniper`** – copies the runtime locally and recreates the expected symlink so Proton can find it. The script uses `rsync` when available for faster incremental updates.
 4. **Export updated ACF files back to the exFAT drive** – copies Linux-side manifests back to the portable drive. The script warns you if newer manifests already exist on the drive before overwriting them.
+5. **Append an `/etc/fstab` entry for the selected drive** – prepares a mount configuration matching the README example and appends it to `/etc/fstab` after asking for confirmation. This option requires root privileges.
 
 The menu language is automatically selected between Italian and English using your system locale, but you can force it with `--lang`. If no exFAT library is detected you can still type the path manually.
 
@@ -75,12 +76,6 @@ This configuration ensures:
 - The drive always mounts under the same path.  
 - The user has proper ownership/permissions to let Steam create symlinks.  
 - The system won’t hang if the drive is not connected at boot.  
-
-### ⚠️ About the `--force` option  
-The `--force` flag will copy `.acf` manifests directly from the external filesystem (e.g. exFAT).  
-This may cause Steam to trigger new downloads even if data is present.  
-Safer approach: align manifests from Windows, which handles exFAT libraries more reliably.  
-
 
 ## Expected behavior
 
@@ -137,12 +132,7 @@ To prevent Steam from downloading games again after moving or symlinking, make s
 
 ## Special case: SteamLinuxRuntime_sniper
 
-Some Proton versions depend on the `SteamLinuxRuntime_sniper` environment.  
-If this runtime is installed on the external drive only, Steam may fail to detect it.  
-
-In this case, you can copy and symlink it manually:
-
-You can now trigger this fix directly from the script (option 3 in the menu). It copies the runtime and rebuilds the symlink automatically. If `rsync` is available it will be used to speed up incremental copies, otherwise it falls back to a full copy.
+Some Proton versions depend on the `SteamLinuxRuntime_sniper` environment. If this runtime lives only on the external drive, Steam may fail to detect it. Use **option 3** in the script to copy the runtime locally and recreate the expected symlink automatically. When `rsync` is installed the script leverages it to speed up subsequent synchronizations; otherwise it falls back to a full copy.
 
 ## TL;DR
 - It does not symlink the entire Steam folder, only games and manifest files.
@@ -151,7 +141,7 @@ You can now trigger this fix directly from the script (option 3 in the menu). It
 - The external Steam library must be added inside Steam settings → Storage. Otherwise Steam won’t know about it and the symlinks won’t be valid.
 - On a dual-boot setup, disable automatic updates of the shared games on the secondary OS.
 - Steam on Windows won’t see the updated .acf files from Linux for obvious reasons.
-- To avoid conflicts, set on your secondary system to “Only update games on launch”. in my case, Windows use is only for linux broken games, such as Apex Legends, Rainbow Six or Battlefield 6.
+- To avoid conflicts, set on your secondary system to “Only update games on launch”.
 
 ## Acknowledgments
 Made with a lot of trial, error, symlinks… and the help of an AI assistant (ChatGPT, sorry guys.).  
