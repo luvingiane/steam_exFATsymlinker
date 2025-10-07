@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import locale
 import re
 import shutil
@@ -11,8 +12,28 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
 
-def detect_language() -> str:
+LOGO = r"""
+⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣤⣶⣶⣶⣶⣤⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⢀⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣤⡀⠀⠀⠀⠀
+⠀⠀⠀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠿⠿⢿⣿⣿⣿⣦⠀⠀⠀
+⠀⢀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠋⠀⠀⠀⠀⠀⠈⠻⣿⣿⣷⡀⠀
+⠀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁⠀⢠⣾⣿⣿⣦⠀⠀⢸⣿⣿⣷⠀
+⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠇⠀⠀⢸⣿⣿⣿⣿⠃⠀⢸⣿⣿⣿⡄
+⠀⠈⠙⠿⣿⣿⣿⣿⣿⡿⠃⠀⠀⠀⠀⠉⠛⠋⠁⠀⢀⣾⣿⣿⣿⡇
+⠀⣤⡀⠀⠀⠉⢛⡋⠉⠁⠀⠀⠀⠀⠀⠀⢀⣀ ⣤⣴⣿⣿⣿⣿⣿⠃
+⠀⢿⣿⣷⣦⡴⣿⣿⣿⣦⡀⠀⠀⢀⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⡿⠀
+⠀⠈⢿⣿⣿⣇⠀⠈⠛⠟⠁⠀⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠁⠀
+⠀⠀⠀⠻⣿⣿⣦⣄⣀⣀⣀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠀⠀⠀
+⠀⠀⠀⠀⠈⠛⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠛⠁⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠈⠙⠛⠛⠿⠿⠿⠿⠛⠛⠋⠁⠀⠀⠀⠀⠀
+"""
+
+
+def detect_language(explicit: Optional[str] = None) -> str:
     """Return the language code to use ("it" or "en")."""
+
+    if explicit in {"it", "en"}:
+        return explicit
 
     lang, _ = locale.getdefaultlocale() or ("", None)
     if isinstance(lang, str) and lang.lower().startswith("it"):
@@ -28,6 +49,7 @@ TEXT: Dict[str, Dict[str, str]] = {
         "choose_path": "Select a library by number or type a custom path:",
         "manual_option": "[M] Enter a custom path",
         "enter_path": "Enter the full path to your steamapps folder: ",
+        "logo": LOGO,
         "invalid_choice": "❌ Invalid choice, please try again.",
         "path_not_found": "❌ The provided path does not exist or is not a directory.",
         "menu_title": "\nWhat do you want to do?",
@@ -49,6 +71,8 @@ TEXT: Dict[str, Dict[str, str]] = {
         "runtime_copy": "📦 Copying runtime...",
         "runtime_done": "✅ SteamLinuxRuntime_sniper is ready.",
         "acf_export": "✅ Exported {count} manifest file(s) to the external drive.",
+        "newer_warning": "⚠️  Detected {count} newer manifest(s) on the external drive. Overwrite anyway? [y/N]: ",
+        "updated_symlinks": "🔁 Updated {count} symlink(s).",
         "bye": "👋 Bye!",
         "status_already": "✅ Already linked: {name}",
         "status_replaced": "♻️  Replaced link: {name}",
@@ -64,6 +88,7 @@ TEXT: Dict[str, Dict[str, str]] = {
         "choose_path": "Seleziona una libreria con il numero oppure inserisci un percorso:",
         "manual_option": "[M] Inserisci un percorso manuale",
         "enter_path": "Percorso completo della cartella steamapps: ",
+        "logo": LOGO,
         "invalid_choice": "❌ Scelta non valida, riprova.",
         "path_not_found": "❌ Il percorso indicato non esiste oppure non è una cartella.",
         "menu_title": "\nCosa vuoi fare?",
@@ -85,6 +110,8 @@ TEXT: Dict[str, Dict[str, str]] = {
         "runtime_copy": "📦 Copia del runtime in corso...",
         "runtime_done": "✅ SteamLinuxRuntime_sniper pronto.",
         "acf_export": "✅ Esportati {count} manifest sul disco esterno.",
+        "newer_warning": "⚠️  Ho rilevato {count} manifest più recenti sul disco esterno. Vuoi sovrascriverli comunque? [s/N]: ",
+        "updated_symlinks": "🔁 Aggiornati {count} symlink.",
         "bye": "👋 Ciao!",
         "status_already": "✅ Già collegato: {name}",
         "status_replaced": "♻️  Link sostituito: {name}",
@@ -167,6 +194,7 @@ def choose_external_path(language: str) -> Optional[Path]:
     mounts = detect_exfat_mounts()
     candidates = discover_steamapps_paths(mounts)
 
+    print(text["logo"])
     print(text["welcome"])
     if candidates:
         print(text["detected_mounts"])
@@ -217,14 +245,14 @@ def parse_games(acf_files: Iterable[Path]) -> List[Dict[str, str]]:
     return games
 
 
-def safe_symlink(src: Path, dst: Path, *, force: bool, text: Dict[str, str]) -> None:
+def safe_symlink(src: Path, dst: Path, *, force: bool, text: Dict[str, str]) -> bool:
     dst.parent.mkdir(parents=True, exist_ok=True)
     if dst.exists() or dst.is_symlink():
         if dst.is_symlink():
             try:
                 if dst.resolve() == src.resolve():
                     print(text["status_already"].format(name=dst.name))
-                    return
+                    return False
             except FileNotFoundError:
                 pass
             dst.unlink()
@@ -238,9 +266,10 @@ def safe_symlink(src: Path, dst: Path, *, force: bool, text: Dict[str, str]) -> 
                 print(text["status_removed"].format(path=dst))
             else:
                 print(text["status_skip"].format(path=dst))
-                return
+                return False
     dst.symlink_to(src, target_is_directory=src.is_dir())
     print(text["status_linked"].format(name=dst.name, src=src))
+    return True
 
 
 def update_symlinks(steamapps_ext: Path, steamapps_local: Path, *, force: bool, language: str) -> None:
@@ -255,19 +284,23 @@ def update_symlinks(steamapps_ext: Path, steamapps_local: Path, *, force: bool, 
     common_local = steamapps_local / "common"
     common_local.mkdir(parents=True, exist_ok=True)
 
+    updated = 0
     for game in games:
         src_acf = steamapps_ext / game["acf"]
         dst_acf = steamapps_local / game["acf"]
-        safe_symlink(src_acf, dst_acf, force=force, text=text)
+        if safe_symlink(src_acf, dst_acf, force=force, text=text):
+            updated += 1
 
         src_folder = common_ext / game["folder"]
         dst_folder = common_local / game["folder"]
         if src_folder.exists():
-            safe_symlink(src_folder, dst_folder, force=force, text=text)
+            if safe_symlink(src_folder, dst_folder, force=force, text=text):
+                updated += 1
         else:
             print(text["missing_source"].format(name=game["folder"]))
 
     print(text["link_done"])
+    print(text["updated_symlinks"].format(count=updated))
 
 
 def ensure_runtime(steamapps_ext: Path, language: str) -> None:
@@ -312,6 +345,27 @@ def export_acf_to_external(steamapps_ext: Path, steamapps_local: Path, language:
         print(text["no_acf_local"])
         return
 
+    newer_on_external = 0
+    for acf in acf_files:
+        destination = steamapps_ext / acf.name
+        if destination.exists():
+            try:
+                dest_mtime = destination.stat().st_mtime
+                src = acf.resolve() if acf.is_symlink() else acf
+                src_mtime = src.stat().st_mtime
+            except OSError:
+                continue
+            if dest_mtime > src_mtime + 1:  # allow 1s tolerance
+                newer_on_external += 1
+
+    if newer_on_external:
+        response = input(text["newer_warning"].format(count=newer_on_external)).strip().lower()
+        if (language == "it" and response not in {"s", "si", "sì"}) or (
+            language == "en" and response not in {"y", "yes"}
+        ):
+            print(text["cancelled"])
+            return
+
     count = 0
     for acf in acf_files:
         try:
@@ -341,8 +395,12 @@ def export_acf_to_external(steamapps_ext: Path, steamapps_local: Path, language:
     print(text["acf_export"].format(count=count))
 
 
-def main() -> None:
-    language = detect_language()
+def main(argv: Optional[Iterable[str]] = None) -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--lang", choices=["en", "it"], help="Override language detection")
+    args = parser.parse_args(argv)
+
+    language = detect_language(args.lang)
     text = TEXT[language]
 
     steamapps_ext = choose_external_path(language)
@@ -358,7 +416,8 @@ def main() -> None:
 
     while True:
         print(text["menu_title"])
-        print(text["menu_options"])
+        for line in text["menu_options"]:
+            print(line, end="")
         choice = input(text["prompt_choice"]).strip().lower()
 
         if choice == "1":
@@ -366,7 +425,9 @@ def main() -> None:
         elif choice == "2":
             print(text["force_warning"])
             confirm = input(text["confirm_force"]).strip().lower()
-            if confirm == "yes":
+            if (language == "en" and confirm == "yes") or (
+                language == "it" and confirm in {"yes", "si", "sì"}
+            ):
                 update_symlinks(steamapps_ext, steamapps_local, force=True, language=language)
             else:
                 print(text["cancelled"])
