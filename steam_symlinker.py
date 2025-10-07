@@ -58,7 +58,7 @@ TEXT: Dict[str, Dict[str, str]] = {
             "2) Force ACF symlinks (dangerous)\n"
             "3) Fix SteamLinuxRuntime_sniper\n"
             "4) Export updated ACFs back to the exFAT drive\n"
-            "Q) Quit"
+            "Q) Quit\n"
         ),
         "prompt_choice": "Choose an option: ",
         "force_warning": "⚠️  This will remove existing files/folders before recreating links!",
@@ -97,7 +97,7 @@ TEXT: Dict[str, Dict[str, str]] = {
             "2) Forza i symlink degli ACF (operazione rischiosa)\n"
             "3) Sistema SteamLinuxRuntime_sniper\n"
             "4) Esporta gli ACF aggiornati sul disco exFAT\n"
-            "Q) Esci"
+            "Q) Esci\n"
         ),
         "prompt_choice": "Scegli un'opzione: ",
         "force_warning": "⚠️  Questa operazione elimina file/cartelle esistenti prima di ricreare i link!",
