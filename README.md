@@ -13,9 +13,18 @@ Instead of moving the entire Steam folder, this tool creates **symlinks for indi
 python3 steam_symlinker.py
 ```
 
+The tool now launches an interactive menu. It automatically detects mounted **exFAT** libraries and lets you:
+
+1. **Update ACF symlinks** – refreshes manifests and game folders without touching existing files.
+2. **Force the ACF symlinks** – same as above, but it removes any conflicting files/directories first. Use this only when you know what you are doing.
+3. **Fix `SteamLinuxRuntime_sniper`** – copies the runtime locally and recreates the expected symlink so Proton can find it.
+4. **Export updated ACF files back to the exFAT drive** – useful after Linux updated manifests and you want Windows to see the changes.
+
+The menu language is automatically selected between Italian and English using your system locale. If no exFAT library is detected you can still type the path manually.
+
 ### Cross-platform benefit
-By symlinking appmanifests and game folders, you can share **a single installation** of your Steam games between Linux and Windows.  
-This works best if the shared library is stored on a filesystem accessible from both OS. 
+By symlinking appmanifests and game folders, you can share **a single installation** of your Steam games between Linux and Windows.
+This works best if the shared library is stored on a filesystem accessible from both OS.
 
 ## How it works
 The script:
@@ -128,11 +137,7 @@ If this runtime is installed on the external drive only, Steam may fail to detec
 
 In this case, you can copy and symlink it manually:
 
-```bash
-mkdir -p ~/.steam/runtime/SteamLinuxRuntime_sniper \
-&& rsync -a --info=progress2 "/PATH/TO/YOUR/DRIVE/SteamLibrary/steamapps/common/SteamLinuxRuntime_sniper/" ~/.steam/runtime/SteamLinuxRuntime_sniper/ \
-&& ln -sfn ~/.steam/runtime/SteamLinuxRuntime_sniper ~/.steam/steam/steamapps/common/SteamLinuxRuntime_sniper
-```
+You can now trigger this fix directly from the script (option 3 in the menu). It copies the runtime and rebuilds the symlink automatically. If `rsync` is available it will be used to speed up incremental copies, otherwise it falls back to a full copy.
 
 ## TL;DR
 - It does not symlink the entire Steam folder, only games and manifest files.
