@@ -24,7 +24,6 @@ The tool launches an interactive (Italian/English) menu that automatically detec
 2. **Force the ACF symlinks** – same as above, but it removes any conflicting files/directories first. Use this only when you know what you are doing.
 3. **Fix `SteamLinuxRuntime_sniper`** – copies the runtime locally and recreates the expected symlink so Proton can find it. The script uses `rsync` when available for faster incremental updates.
 4. **Export updated ACF files back to the exFAT drive** – copies Linux-side manifests back to the portable drive. The script warns you if newer manifests already exist on the drive before overwriting them.
-5. **Append an `/etc/fstab` entry for the selected drive** – prepares a mount configuration matching the README example and appends it to `/etc/fstab` after asking for confirmation. This option requires root privileges.
 
 The menu language is automatically selected between Italian and English using your system locale, but you can force it with `--lang`. If no exFAT library is detected you can still type the path manually.
 
