@@ -5,11 +5,12 @@ from __future__ import annotations
 
 import argparse
 import locale
+import os
 import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 
 LOGO = r"""
@@ -35,7 +36,23 @@ def detect_language(explicit: Optional[str] = None) -> str:
     if explicit in {"it", "en"}:
         return explicit
 
-    lang, _ = locale.getdefaultlocale() or ("", None)
+    env_lang = ""
+    for var in ("LC_ALL", "LC_MESSAGES", "LANG"):
+        value = os.environ.get(var)
+        if value:
+            env_lang = value
+            break
+
+    if env_lang:
+        lang = env_lang
+    else:
+        try:
+            locale.setlocale(locale.LC_ALL, "")
+        except locale.Error:
+            pass
+        lang, _ = locale.getlocale()
+        lang = lang or ""
+
     if isinstance(lang, str) and lang.lower().startswith("it"):
         return "it"
     return "en"
@@ -80,6 +97,7 @@ TEXT: Dict[str, Dict[str, str]] = {
         "status_skip": "⛔ Existing object skipped (use forced option to overwrite): {path}",
         "status_linked": "🔗 Linked {name} → {src}",
         "missing_source": "❓ Missing source, skipping: {name}",
+        "skip_newer": "⏭️  Skipping {name}: newer manifest already present on the external drive.",
     },
     "it": {
         "welcome": "🚀 Steam exFAT Symlinker",
@@ -119,6 +137,7 @@ TEXT: Dict[str, Dict[str, str]] = {
         "status_skip": "⛔ Oggetto esistente ignorato (usa l'opzione forzata per sovrascrivere): {path}",
         "status_linked": "🔗 Collegato {name} → {src}",
         "missing_source": "❓ Sorgente mancante, salto: {name}",
+        "skip_newer": "⏭️  Salto {name}: sul disco esterno c'è già un manifest più recente.",
     },
 }
 
@@ -134,7 +153,7 @@ def detect_exfat_mounts() -> List[Path]:
                 parts = line.split()
                 if len(parts) < 3:
                     continue
-                mount_point = Path(parts[1])
+                mount_point = Path(parts[1].replace("\\040", " "))
                 fs_type = parts[2].lower()
                 if fs_type in exfat_names and mount_point.exists():
                     mounts.append(mount_point)
@@ -345,28 +364,9 @@ def export_acf_to_external(steamapps_ext: Path, steamapps_local: Path, language:
         print(text["no_acf_local"])
         return
 
+    file_entries: List[Tuple[Path, Path, float, Optional[float]]] = []
     newer_on_external = 0
-    for acf in acf_files:
-        destination = steamapps_ext / acf.name
-        if destination.exists():
-            try:
-                dest_mtime = destination.stat().st_mtime
-                src = acf.resolve() if acf.is_symlink() else acf
-                src_mtime = src.stat().st_mtime
-            except OSError:
-                continue
-            if dest_mtime > src_mtime + 1:  # allow 1s tolerance
-                newer_on_external += 1
 
-    if newer_on_external:
-        response = input(text["newer_warning"].format(count=newer_on_external)).strip().lower()
-        if (language == "it" and response not in {"s", "si", "sì"}) or (
-            language == "en" and response not in {"y", "yes"}
-        ):
-            print(text["cancelled"])
-            return
-
-    count = 0
     for acf in acf_files:
         try:
             source = acf.resolve() if acf.is_symlink() else acf
@@ -377,16 +377,48 @@ def export_acf_to_external(steamapps_ext: Path, steamapps_local: Path, language:
             continue
 
         destination = steamapps_ext / acf.name
-        destination.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            src_mtime = source.stat().st_mtime
+        except OSError:
+            continue
 
-        same_file = False
+        dest_mtime: Optional[float] = None
         if destination.exists():
             try:
-                same_file = source.samefile(destination)
-            except (FileNotFoundError, OSError):
-                same_file = False
+                dest_mtime = destination.stat().st_mtime
+            except OSError:
+                dest_mtime = None
 
-        if same_file:
+        if dest_mtime is not None and dest_mtime > src_mtime + 1:
+            newer_on_external += 1
+
+        file_entries.append((source, destination, src_mtime, dest_mtime))
+
+    allow_overwrite = True
+    if newer_on_external:
+        response = input(text["newer_warning"].format(count=newer_on_external)).strip().lower()
+        if (language == "it" and response not in {"s", "si", "sì"}) or (
+            language == "en" and response not in {"y", "yes"}
+        ):
+            allow_overwrite = False
+
+    count = 0
+    for source, destination, src_mtime, dest_mtime in file_entries:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+
+        if destination.exists():
+            try:
+                if source.samefile(destination):
+                    continue
+            except (FileNotFoundError, OSError):
+                pass
+
+        if (
+            not allow_overwrite
+            and dest_mtime is not None
+            and dest_mtime > src_mtime + 1
+        ):
+            print(text["skip_newer"].format(name=destination.name))
             continue
 
         shutil.copy2(source, destination)
